@@ -511,8 +511,8 @@ async def upload_files(
             if not detected_course_name:
                 detected_course_name = guess_course_name_from_filename(filename)
 
-        audit_result = generate_rule_based_audit(course_standard_info)
-        ai_result = call_deepseek_audit(
+    audit_result = generate_rule_based_audit(course_standard_info)
+    ai_result = call_deepseek_audit(
         detected_course_name,
         audit_mode,
         output_type,
@@ -520,8 +520,11 @@ async def upload_files(
         syllabus_full_text,
     )
 
+    audit_source = "规则审核兜底"
+
     if ai_result:
-        audit_result = ai_result            
+        audit_result = ai_result
+        audit_source = "DeepSeek AI审核"
 
     if audit_mode == "quick":
         audit_result["conclusion"] = "总体判断：本次为快速审核，重点检查课程标准与教学内容的基础匹配情况。"
@@ -553,5 +556,6 @@ async def upload_files(
         "syllabus_text_preview": syllabus_text_preview,
         "course_standard_info": course_standard_info,
         "audit_result": audit_result,
+        "audit_source": audit_source,
         "saved_files": saved_files,
     }

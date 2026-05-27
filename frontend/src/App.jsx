@@ -203,6 +203,7 @@ export default function App() {
   const [activeStep, setActiveStep] = useState(0);
   const [courseStandardInfo, setCourseStandardInfo] = useState(null);
   const [backendAuditResult, setBackendAuditResult] = useState(null);
+  const [auditSource, setAuditSource] = useState("");
 
   const currentResult =
   auditMode === "full" && backendAuditResult
@@ -268,6 +269,9 @@ export default function App() {
       if (data.audit_result) {
         setBackendAuditResult(data.audit_result);
       }
+      if (data.audit_source) {
+        setAuditSource(data.audit_source);
+   }
 
       let current = 0;
 
@@ -539,10 +543,15 @@ new Paragraph(
             </div>
           </div>
 
-          <div className="result-card">
-            <h2>审核结果概览</h2>
+	          <div className="result-card">
+	            <h2>审核结果概览</h2>
+	            {auditSource && (
+	              <p className="result-text">
+	                审核来源：{auditSource}
+	              </p>
+	            )}
 
-            {courseStandardInfo && (
+	            {courseStandardInfo && (
               <div className="extract-card">
                 <h3>课程标准解析结果</h3>
 
