@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import json
+import requests
 import re
 import shutil
 from typing import List, Optional
@@ -330,6 +333,105 @@ def generate_rule_based_audit(course_standard_info: dict) -> dict:
     }
 
 
+def call_deepseek_audit(course_name: str, audit_mode: str, output_type: str, course_standard_info: dict, syllabus_full_text: str = "") -> dict:
+    """
+    调用 DeepSeek 生成 AI 审核结果。
+    如果调用失败，返回空字典，由后端继续使用规则审核结果兜底。
+    """
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    print("开始调用 DeepSeek AI 审核")
+
+    if not api_key:
+        print("未设置 DEEPSEEK_API_KEY，跳过 AI 审核")
+        return {}
+
+    prompt = f"""
+你是一名高职院校课程教学资料审核专家。请根据以下课程标准解析结果，进行教学资料一致性审核。
+
+课程名称：{course_name}
+审核模式：{audit_mode}
+输出类型：{output_type}
+
+课程目标：
+{json.dumps(course_standard_info.get("course_objectives", []), ensure_ascii=False, indent=2)}
+
+教学内容：
+{json.dumps(course_standard_info.get("teaching_content", []), ensure_ascii=False, indent=2)}
+
+考核方式：
+{json.dumps(course_standard_info.get("assessment_methods", []), ensure_ascii=False, indent=2)}
+
+课程标准原文片段：
+{json.dumps(course_standard_info.get("raw_sections", {}), ensure_ascii=False, indent=2)}
+课程标准全文节选：
+{syllabus_full_text[:8000]}
+
+请严格输出 JSON，不要输出任何解释性文字。
+JSON 格式如下：
+{{
+  "score": 0-100的整数,
+  "conclusion": "总体判断",
+  "issues": [
+    {{
+      "level": "高/中/低",
+      "type": "问题类型",
+      "desc": "问题描述",
+      "suggestion": "整改建议"
+    }}
+  ]
+}}
+
+要求：
+0. 请以“课程标准全文节选”为主要依据，course_objectives、teaching_content、assessment_methods 仅作为辅助参考；
+0. 不要评价“解析结果是否完整”，不要使用“解析结果中缺失”“系统未识别到”等表述；如果发现内容不足，请表述为“课程标准中未充分体现……”或“教学材料中未充分体现……”；
+1. 不要使用与课程无关的表述；
+2. 如果课程是艺术设计类，不要出现“译文质量”等翻译类表述；
+3. 审核意见要具体、建设性，适合高职院校教学质量监控场景；
+4. 如果没有明显问题，也要给出低风险复核建议。
+"""
+
+    try:
+        response = requests.post(
+            "https://api.deepseek.com/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "deepseek-chat",
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2,
+            },
+            timeout=90,
+        )
+
+        if response.status_code != 200:
+            print("DeepSeek 调用失败：", response.status_code, response.text)
+            return {}
+
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+
+        # 防止模型返回 ```json 包裹
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.replace("```json", "").replace("```", "").strip()
+
+        result = json.loads(content)
+
+        if "score" not in result or "issues" not in result:
+            print("DeepSeek 返回格式不完整：", result)
+            return {}
+
+        return result
+
+    except Exception as e:
+        print("DeepSeek 审核异常：", e)
+        return {}
+    
+    
 @app.get("/")
 def read_root():
     return {"message": "AI Teaching Material Audit Backend is running."}
@@ -356,6 +458,7 @@ async def upload_files(
 
     detected_course_name = ""
     syllabus_text_preview = ""
+    syllabus_full_text = ""
     course_standard_info = build_empty_course_standard_info()
 
     for group_name, files in groups.items():
@@ -392,6 +495,8 @@ async def upload_files(
 
             if text and not syllabus_text_preview:
                 syllabus_text_preview = text[:500]
+            if text and not syllabus_full_text:
+                syllabus_full_text = text
 
             if text:
                 extracted_info = extract_course_standard_info(text)
@@ -407,6 +512,16 @@ async def upload_files(
                 detected_course_name = guess_course_name_from_filename(filename)
 
         audit_result = generate_rule_based_audit(course_standard_info)
+        ai_result = call_deepseek_audit(
+        detected_course_name,
+        audit_mode,
+        output_type,
+        course_standard_info,
+        syllabus_full_text,
+    )
+
+    if ai_result:
+        audit_result = ai_result            
 
     if audit_mode == "quick":
         audit_result["conclusion"] = "总体判断：本次为快速审核，重点检查课程标准与教学内容的基础匹配情况。"
