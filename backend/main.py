@@ -7,10 +7,13 @@ import shutil
 from typing import List, Optional
 
 from docx import Document
+from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
 
+
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
 app = FastAPI(title="AI Teaching Material Audit Backend")
 
