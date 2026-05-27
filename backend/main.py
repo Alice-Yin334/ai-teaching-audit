@@ -336,8 +336,8 @@ def generate_rule_based_audit(course_standard_info: dict) -> dict:
     }
 
 
-def get_llm_config() -> dict:
-    provider = os.getenv("LLM_PROVIDER", "deepseek").strip().lower()
+def get_llm_config(provider: Optional[str] = None) -> dict:
+    selected_provider = (provider or os.getenv("LLM_PROVIDER", "deepseek")).strip().lower()
 
     configs = {
         "deepseek": {
@@ -353,7 +353,7 @@ def get_llm_config() -> dict:
             "api_key": os.getenv("KIMI_API_KEY", ""),
             "api_url": os.getenv(
                 "KIMI_API_URL",
-                "https://api.moonshot.cn/v1/chat/completions",
+                "https://api.moonshot.ai/v1/chat/completions",
             ),
             "model": os.getenv("KIMI_MODEL", "moonshot-v1-8k"),
             "provider_name": "Kimi",
@@ -369,15 +369,22 @@ def get_llm_config() -> dict:
         },
     }
 
-    return configs.get(provider, configs["deepseek"])
+    return configs.get(selected_provider, configs["deepseek"])
 
 
-def call_llm_audit(course_name: str, audit_mode: str, output_type: str, course_standard_info: dict, syllabus_full_text: str = "") -> dict:
+def call_llm_audit(
+    course_name: str,
+    audit_mode: str,
+    output_type: str,
+    course_standard_info: dict,
+    syllabus_full_text: str = "",
+    llm_provider: Optional[str] = None,
+) -> dict:
     """
     调用当前配置的 LLM 生成 AI 审核结果。
     如果调用失败，返回空字典，由后端继续使用规则审核结果兜底。
     """
-    llm_config = get_llm_config()
+    llm_config = get_llm_config(llm_provider)
     api_key = llm_config["api_key"]
     api_url = llm_config["api_url"]
     model = llm_config["model"]
@@ -488,6 +495,7 @@ async def upload_files(
     material_files: List[UploadFile] = File(...),
     audit_mode: str = Form("full"),
     output_type: str = Form("detailed"),
+    llm_provider: str = Form("deepseek"),
 ):
     saved_files = {
         "program_files": [],
@@ -556,7 +564,7 @@ async def upload_files(
                 detected_course_name = guess_course_name_from_filename(filename)
 
     audit_result = generate_rule_based_audit(course_standard_info)
-    llm_config = get_llm_config()
+    llm_config = get_llm_config(llm_provider)
     provider_name = llm_config["provider_name"]
     ai_result = call_llm_audit(
         detected_course_name,
@@ -564,6 +572,7 @@ async def upload_files(
         output_type,
         course_standard_info,
         syllabus_full_text,
+        llm_provider,
     )
 
     audit_source = "规则审核兜底"

@@ -82,6 +82,12 @@ p {
   cursor: not-allowed;
 }
 
+.primary-btn.auditing:disabled {
+  background: #0f172a;
+  color: white;
+  opacity: 0.86;
+}
+
 .secondary-btn {
   margin-top: 16px;
   background: #f1f5f9;
@@ -257,6 +263,24 @@ select {
 
 .result-text {
   margin-top: 0;
+}
+
+.loading-text,
+.error-text {
+  margin-top: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  line-height: 1.6;
+}
+
+.loading-text {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.error-text {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .issue-list {

@@ -2,3 +2,5 @@ backend/.env
 backend/uploads/
 frontend/node_modules/
 backend/venv/
+*.pyc
+__pycache__/

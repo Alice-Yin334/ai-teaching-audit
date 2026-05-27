@@ -196,6 +196,7 @@ export default function App() {
   const [courseName, setCourseName] = useState("");
   const [auditMode, setAuditMode] = useState("full");
   const [outputType, setOutputType] = useState("detailed");
+  const [llmProvider, setLlmProvider] = useState("deepseek");
   const [programFiles, setProgramFiles] = useState([]);
   const [syllabusFiles, setSyllabusFiles] = useState([]);
   const [materialFiles, setMaterialFiles] = useState([]);
@@ -204,6 +205,8 @@ export default function App() {
   const [courseStandardInfo, setCourseStandardInfo] = useState(null);
   const [backendAuditResult, setBackendAuditResult] = useState(null);
   const [auditSource, setAuditSource] = useState("");
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditError, setAuditError] = useState("");
 
   const currentResult =
   auditMode === "full" && backendAuditResult
@@ -216,18 +219,25 @@ export default function App() {
     materialFiles.length > 0;
 
   async function startAudit() {
-    alert("按钮已经触发");
+    if (isAuditing) {
+      return;
+    }
+
     console.log("开始执行 startAudit");
 
+    setIsAuditing(true);
     setAudited(false);
-    setActiveStep(0);
+    setActiveStep(1);
     setCourseStandardInfo(null);
     setBackendAuditResult(null);
+    setAuditSource("");
+    setAuditError("");
 
     const formData = new FormData();
 
     formData.append("audit_mode", auditMode);
     formData.append("output_type", outputType);
+    formData.append("llm_provider", llmProvider);
     
     programFiles.forEach((file) => {
       formData.append("program_files", file);
@@ -286,7 +296,9 @@ export default function App() {
       }, 600);
     } catch (error) {
       console.error("上传或审核失败：", error);
-      alert("上传失败，请检查后端是否正在运行。");
+      setAuditError("上传或审核失败，请检查后端是否正在运行。");
+    } finally {
+      setIsAuditing(false);
     }
   }
   async function exportWordReport() {
@@ -422,12 +434,12 @@ new Paragraph(
           </div>
 
           <button
-            className="primary-btn"
-            disabled={!canAudit}
+            className={`primary-btn ${isAuditing ? "auditing" : ""}`}
+            disabled={!canAudit || isAuditing}
             onClick={startAudit}
           >
             <Sparkles size={18} />
-            开始审核
+            {isAuditing ? "审核中，请稍候..." : "开始审核"}
           </button>
         </header>
 
@@ -480,6 +492,23 @@ new Paragraph(
                     {option.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label>模型供应商</label>
+              <select
+                value={llmProvider}
+                onChange={(e) => {
+                  setLlmProvider(e.target.value);
+                  setAudited(false);
+                  setActiveStep(0);
+                  setBackendAuditResult(null);
+                }}
+              >
+                <option value="deepseek">DeepSeek</option>
+                <option value="kimi">Kimi</option>
+                <option value="doubao">豆包</option>
               </select>
             </div>
           </div>
@@ -543,15 +572,25 @@ new Paragraph(
             </div>
           </div>
 
-	          <div className="result-card">
-	            <h2>审核结果概览</h2>
-	            {auditSource && (
-	              <p className="result-text">
-	                审核来源：{auditSource}
-	              </p>
-	            )}
+          <div className="result-card">
+            <h2>审核结果概览</h2>
+            {auditSource && (
+              <p className="result-text">
+                审核来源：{auditSource}
+              </p>
+            )}
 
-	            {courseStandardInfo && (
+            {isAuditing && (
+              <p className="loading-text">
+                AI正在审核教学资料，请稍候。较大的PDF或调用外部模型时可能需要几十秒。
+              </p>
+            )}
+
+            {auditError && !isAuditing && (
+              <p className="error-text">{auditError}</p>
+            )}
+
+            {courseStandardInfo && (
               <div className="extract-card">
                 <h3>课程标准解析结果</h3>
 
