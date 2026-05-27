@@ -336,16 +336,57 @@ def generate_rule_based_audit(course_standard_info: dict) -> dict:
     }
 
 
-def call_deepseek_audit(course_name: str, audit_mode: str, output_type: str, course_standard_info: dict, syllabus_full_text: str = "") -> dict:
+def get_llm_config() -> dict:
+    provider = os.getenv("LLM_PROVIDER", "deepseek").strip().lower()
+
+    configs = {
+        "deepseek": {
+            "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+            "api_url": os.getenv(
+                "DEEPSEEK_API_URL",
+                "https://api.deepseek.com/chat/completions",
+            ),
+            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            "provider_name": "DeepSeek",
+        },
+        "kimi": {
+            "api_key": os.getenv("KIMI_API_KEY", ""),
+            "api_url": os.getenv(
+                "KIMI_API_URL",
+                "https://api.moonshot.cn/v1/chat/completions",
+            ),
+            "model": os.getenv("KIMI_MODEL", "moonshot-v1-8k"),
+            "provider_name": "Kimi",
+        },
+        "doubao": {
+            "api_key": os.getenv("DOUBAO_API_KEY", ""),
+            "api_url": os.getenv(
+                "DOUBAO_API_URL",
+                "your_doubao_openai_compatible_url_here",
+            ),
+            "model": os.getenv("DOUBAO_MODEL", "your_doubao_model_name_here"),
+            "provider_name": "豆包",
+        },
+    }
+
+    return configs.get(provider, configs["deepseek"])
+
+
+def call_llm_audit(course_name: str, audit_mode: str, output_type: str, course_standard_info: dict, syllabus_full_text: str = "") -> dict:
     """
-    调用 DeepSeek 生成 AI 审核结果。
+    调用当前配置的 LLM 生成 AI 审核结果。
     如果调用失败，返回空字典，由后端继续使用规则审核结果兜底。
     """
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    print("开始调用 DeepSeek AI 审核")
+    llm_config = get_llm_config()
+    api_key = llm_config["api_key"]
+    api_url = llm_config["api_url"]
+    model = llm_config["model"]
+    provider_name = llm_config["provider_name"]
+
+    print(f"开始调用 {provider_name} AI 审核")
 
     if not api_key:
-        print("未设置 DEEPSEEK_API_KEY，跳过 AI 审核")
+        print(f"未设置 {provider_name} API Key，跳过 AI 审核")
         return {}
 
     prompt = f"""
@@ -395,13 +436,13 @@ JSON 格式如下：
 
     try:
         response = requests.post(
-            "https://api.deepseek.com/chat/completions",
+            api_url,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
             json={
-                "model": "deepseek-chat",
+                "model": model,
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
@@ -411,7 +452,7 @@ JSON 格式如下：
         )
 
         if response.status_code != 200:
-            print("DeepSeek 调用失败：", response.status_code, response.text)
+            print(f"{provider_name} 调用失败：", response.status_code, response.text)
             return {}
 
         data = response.json()
@@ -425,13 +466,13 @@ JSON 格式如下：
         result = json.loads(content)
 
         if "score" not in result or "issues" not in result:
-            print("DeepSeek 返回格式不完整：", result)
+            print(f"{provider_name} 返回格式不完整：", result)
             return {}
 
         return result
 
     except Exception as e:
-        print("DeepSeek 审核异常：", e)
+        print(f"{provider_name} 审核异常：", e)
         return {}
     
     
@@ -515,7 +556,9 @@ async def upload_files(
                 detected_course_name = guess_course_name_from_filename(filename)
 
     audit_result = generate_rule_based_audit(course_standard_info)
-    ai_result = call_deepseek_audit(
+    llm_config = get_llm_config()
+    provider_name = llm_config["provider_name"]
+    ai_result = call_llm_audit(
         detected_course_name,
         audit_mode,
         output_type,
@@ -527,7 +570,7 @@ async def upload_files(
 
     if ai_result:
         audit_result = ai_result
-        audit_source = "DeepSeek AI审核"
+        audit_source = f"{provider_name} AI审核"
 
     if audit_mode == "quick":
         audit_result["conclusion"] = "总体判断：本次为快速审核，重点检查课程标准与教学内容的基础匹配情况。"
