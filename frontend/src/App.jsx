@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import "./App.css";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { saveAs } from "file-saver";
+
 
 const steps = [
   "解析人才培养方案",
@@ -282,6 +285,115 @@ export default function App() {
       alert("上传失败，请检查后端是否正在运行。");
     }
   }
+  async function exportWordReport() {
+  const issues =
+  currentResult?.issues?.length > 0
+    ? currentResult.issues
+    : [
+        {
+          level: "低",
+          type: "未发现明显结构性问题",
+          desc: "系统已识别到课程目标、教学内容和考核方式，三类要素较为完整。",
+          suggestion: "建议进一步开展人工复核，重点检查课程目标、教学内容和考核方式之间的具体对应关系。",
+        },
+      ];
+
+  const doc = new Document({
+    sections: [
+      {
+        children: [
+          new Paragraph({
+            text: "教学资料一致性审核报告",
+            heading: HeadingLevel.TITLE,
+          }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: "课程名称：", bold: true }),
+              new TextRun(courseName || "未识别"),
+            ],
+          }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: "审核模式：", bold: true }),
+              new TextRun(
+                auditModeOptions.find((item) => item.value === auditMode)
+                  ?.label || auditMode
+              ),
+            ],
+          }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: "输出类型：", bold: true }),
+              new TextRun(
+                outputOptionsByMode[auditMode].find(
+                  (item) => item.value === outputType
+                )?.label || outputType
+              ),
+            ],
+          }),
+
+          new Paragraph({
+            text: "一、审核结果概览",
+            heading: HeadingLevel.HEADING_1,
+          }),
+
+          new Paragraph(`一致性评分：${currentResult?.score ?? "暂无"} / 100`),
+new Paragraph(
+  `总体判断：${
+    currentResult?.conclusion ||
+    (currentResult?.score >= 85
+      ? "课程标准结构较为完整，课程目标、教学内容和考核方式之间具备较好的基础一致性。"
+      : "课程标准仍存在需要进一步完善的地方，建议结合课程目标、教学内容和考核方式进行人工复核。")
+  }`
+),
+
+          new Paragraph({
+            text: "二、课程标准解析结果",
+            heading: HeadingLevel.HEADING_1,
+          }),
+
+          new Paragraph(
+            `课程目标：${
+              courseStandardInfo?.course_objectives?.length || 0
+            } 条`
+          ),
+          new Paragraph(
+            `教学内容：${
+              courseStandardInfo?.teaching_content?.length || 0
+            } 条`
+          ),
+          new Paragraph(
+            `考核方式：${
+              courseStandardInfo?.assessment_methods?.length || 0
+            } 条`
+          ),
+
+          new Paragraph({
+            text: "三、问题清单与整改建议",
+            heading: HeadingLevel.HEADING_1,
+          }),
+
+          ...issues.flatMap((item, index) => [
+            new Paragraph({
+              text: `${index + 1}. ${item.type || "未命名问题"}（${
+                item.level || "未定"
+              }风险）`,
+              heading: HeadingLevel.HEADING_2,
+            }),
+            new Paragraph(`问题描述：${item.desc || "暂无"}`),
+            new Paragraph(`整改建议：${item.suggestion || "暂无"}`),
+          ]),
+        ],
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `${courseName || "课程"}-教学资料一致性审核报告.docx`);
+}
 
   return (
     <div className="page">
@@ -527,7 +639,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <button className="secondary-btn">
+                <button className="secondary-btn" onClick={exportWordReport}>
                   <Download size={18} />
                   导出
                   {

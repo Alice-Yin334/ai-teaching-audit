@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "docx": "^9.7.0",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
