@@ -14,7 +14,9 @@ import { saveAs } from "file-saver";
 
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
+const UPLOAD_URL = API_BASE_URL ? `${API_BASE_URL}/upload` : "/api/upload";
 
 const steps = [
   "解析人才培养方案",
@@ -257,7 +259,7 @@ export default function App() {
     try {
       console.log("准备上传文件到后端");
 
-      const response = await fetch(`${API_BASE_URL}/upload`, {
+      const response = await fetch(UPLOAD_URL, {
         method: "POST",
         body: formData,
       });

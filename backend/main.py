@@ -489,6 +489,7 @@ def read_root():
 
 
 @app.post("/upload")
+@app.post("/api/upload")
 async def upload_files(
     program_files: List[UploadFile] = File(...),
     syllabus_files: List[UploadFile] = File(...),

@@ -1,22 +1,31 @@
-# Deployment Guide
+# Vercel Deployment Guide
 
-## Backend: Render
+This project is configured to deploy the Vite frontend and FastAPI backend together on Vercel.
 
-- Root Directory: `backend`
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Environment Variables: configure them according to `backend/.env.example`
+## Project Settings
 
-Do not upload `backend/.env` to Git or Render. Add the same values in Render's Environment Variables panel.
+- Root Directory: project root
+- Build Command: `cd frontend && npm install && npm run build`
+- Output Directory: `frontend/dist`
 
-## Frontend: Vercel
+The Python backend entry is `api/index.py`, which imports the FastAPI app from `backend/main.py`.
 
-- Root Directory: `frontend`
-- Build Command: `npm run build`
-- Output Directory: `dist`
+## API Path
 
-Set this Vercel environment variable to your deployed Render backend URL:
+After deployment, the frontend calls the backend through the same Vercel domain:
 
-```env
-VITE_API_BASE_URL=https://your-render-backend-url.onrender.com
+```text
+/api/upload
 ```
+
+For local development, if `VITE_API_BASE_URL` is not set, the frontend still calls:
+
+```text
+http://127.0.0.1:8000/upload
+```
+
+## Environment Variables
+
+Configure backend model variables in Vercel according to `backend/.env.example`.
+
+Do not commit `backend/.env` or any real API keys.
