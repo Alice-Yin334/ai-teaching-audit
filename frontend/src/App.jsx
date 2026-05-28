@@ -13,6 +13,9 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { saveAs } from "file-saver";
 
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
 const steps = [
   "解析人才培养方案",
   "核查课程标准目标",
@@ -254,7 +257,7 @@ export default function App() {
     try {
       console.log("准备上传文件到后端");
 
-      const response = await fetch("http://127.0.0.1:8000/upload", {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: "POST",
         body: formData,
       });
